@@ -122,7 +122,7 @@ if not pairs_found.empty:
     with st.expander("📝 Full Transaction & MTM Ledger", expanded=True):
         # Prepare the specific columns for the audit
         # We include the Qty columns you requested
-        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Daily_PnL', 'Total_PnL']].tail(20).iloc[::-1]
+        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Daily_PnL', 'Total_PnL']].tail(500).iloc[::-1]
         
         # Rename columns for a cleaner look
         audit_df.columns = [f'{s1_n} Px', f'{s2_n} Px', 'Z-Score', f'{s1_n} Qty', f'{s2_n} Qty', 'Daily P&L', 'Cum. P&L']
@@ -155,5 +155,6 @@ if not pairs_found.empty:
 else:
 
     st.warning("No cointegrated pairs detected. Try expanding the timeframe.")
+
 
 
