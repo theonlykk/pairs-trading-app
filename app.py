@@ -15,8 +15,8 @@ ticker_input = st.sidebar.text_input("Banking Tickers", "JPM, BAC, MS, GS, C, WF
 lookback = st.sidebar.date_input("Analysis Start Date", pd.to_datetime("2025-01-01"))
 z_thresh = st.sidebar.slider("Z-Score Entry Threshold", 1.5, 3.0, 2.0)
 
-# 3. Data Engine (The Verified "Ramp Killer" & Python 3.13 Fix)
-@st.cache(show_spinner=True)
+# 3. Data Engine (Updated to st.cache_data)
+@st.cache_data(show_spinner=True)
 def fetch_and_clean(tickers_str, start):
     tickers = [t.strip() for t in tickers_str.split(",")]
     df_raw = yf.download(tickers, start=start, auto_adjust=False)
@@ -35,17 +35,18 @@ def fetch_and_clean(tickers_str, start):
 
 data = fetch_and_clean(ticker_input, lookback)
 
-# 4. Pair Selection Math (Optimized for Cloud/Python 3.13)
+# 4. Pair Selection Math (Memory Safe)
 def get_best_pairs(df):
     results = []
     nodes = df.columns
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
-            # Force 1D numpy arrays to avoid ptp/numpy errors
-            s1 = np.ascontiguousarray(df.iloc[:, i].values, dtype=float)
-            s2 = np.ascontiguousarray(df.iloc[:, j].values, dtype=float)
+            # Convert to standard 1D arrays and copy to prevent memory corruption
+            s1 = df.iloc[:, i].values.astype(float).copy()
+            s2 = df.iloc[:, j].values.astype(float).copy()
             
             try:
+                # The coint function can be memory-intensive; we handle errors gracefully
                 _, pval, _ = coint(s1, s2)
                 if pval < 0.05:
                     results.append((nodes[i], nodes[j], pval))
@@ -142,7 +143,5 @@ if not pairs_found.empty:
             f'{s1_n} Px': '{:.2f}', f'{s2_n} Px': '{:.2f}', 
             'Z-Score': '{:.2f}', 'Cum. P&L': '{:.2f}'
         }))
-
 else:
     st.warning("No cointegrated pairs detected. Try expanding the timeframe or changing tickers.")
-
