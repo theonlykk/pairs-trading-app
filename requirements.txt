@@ -1,6 +1,6 @@
-streamlit==1.37.0
-yfinance
-pandas==2.2.2
-numpy<2.0.0
-statsmodels==0.14.2
-scipy
+streamlit>=1.40.0
+yfinance>=0.2.50
+pandas>=2.2.0
+numpy>=1.26.0,<2.0.0
+statsmodels>=0.14.4
+scipy>=1.13.0
