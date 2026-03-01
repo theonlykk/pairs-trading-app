@@ -12,7 +12,7 @@ st.title("🏦 Institutional Pairs Trading Dashboard")
 # 2. Sidebar Settings
 st.sidebar.header("Strategy Parameters")
 ticker_input = st.sidebar.text_input("Banking Tickers", "JPM, BAC, MS, GS, C, WFC")
-lookback = st.sidebar.date_input("Analysis Start Date", pd.to_datetime("2023-01-01"))
+lookback = st.sidebar.date_input("Analysis Start Date", pd.to_datetime("2025-01-01"))
 z_thresh = st.sidebar.slider("Z-Score Entry Threshold", 1.5, 3.0, 2.0)
 
 # 3. Data Engine (The Verified "Ramp Killer" & Python 3.13 Fix)
@@ -145,5 +145,6 @@ if not pairs_found.empty:
 
 else:
     st.warning("No cointegrated pairs detected. Try expanding the timeframe or changing tickers.")
+
 
 
