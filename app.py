@@ -127,7 +127,7 @@ if not pairs_found.empty:
 
     with t2:
         st.subheader("📝 Audit Ledger")
-        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Total_PnL']].tail(15).iloc[::-1]
+        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Total_PnL']].tail(500).iloc[::-1]
         audit_df.columns = [f'{s1_n} Px', f'{s2_n} Px', 'Z-Score', 'S1 Qty', 'S2 Qty', 'Cum. P&L']
 
         st.markdown("""
@@ -145,4 +145,5 @@ if not pairs_found.empty:
 
 else:
     st.warning("No cointegrated pairs detected. Try expanding the timeframe or changing tickers.")
+
 
