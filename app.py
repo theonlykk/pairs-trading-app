@@ -41,10 +41,18 @@ def get_best_pairs(df):
     nodes = df.columns
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
-            s1, s2 = df.iloc[:, i], df.iloc[:, j]
-            _, pval, _ = coint(s1, s2)
-            if pval < 0.05:
-                results.append((nodes[i], nodes[j], pval))
+            # Force conversion to 1D numpy array of floats to satisfy Python 3.13
+            s1 = np.ascontiguousarray(df.iloc[:, i].values, dtype=float)
+            s2 = np.ascontiguousarray(df.iloc[:, j].values, dtype=float)
+            
+            try:
+                _, pval, _ = coint(s1, s2)
+                if pval < 0.05:
+                    results.append((nodes[i], nodes[j], pval))
+            except Exception:
+                # This skips any pairs that might still cause a math error
+                continue
+                
     return pd.DataFrame(results, columns=['S1', 'S2', 'P-Value']).sort_values('P-Value')
 
 pairs_found = get_best_pairs(data)
@@ -130,4 +138,5 @@ if not pairs_found.empty:
         st.table(ledger[['S1_Px', 'S2_Px', 'Z', 'Pos', 'Total_PnL']].tail(500).iloc[::-1])
 
 else:
+
     st.warning("No cointegrated pairs detected. Try expanding the timeframe.")
