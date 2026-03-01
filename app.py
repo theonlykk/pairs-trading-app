@@ -118,26 +118,42 @@ if not pairs_found.empty:
         st.write("**Daily Mark-to-Market P&L**")
         st.bar_chart(ledger['Daily_PnL'])
 
-    # 8. Execution Tickets & Ledger
-    st.markdown("---")
-    t1, t2 = st.columns([1, 2])
+    # 8. Ledger Audit (With Positions & Small Font)
+    with st.expander("📝 Full Transaction & MTM Ledger", expanded=True):
+        # Prepare the specific columns for the audit
+        # We include the Qty columns you requested
+        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Daily_PnL', 'Total_PnL']].tail(20).iloc[::-1]
+        
+        # Rename columns for a cleaner look
+        audit_df.columns = [f'{s1_n} Px', f'{s2_n} Px', 'Z-Score', f'{s1_n} Qty', f'{s2_n} Qty', 'Daily P&L', 'Cum. P&L']
     
-    with t1:
-        st.subheader("🎫 Execution Ticket")
-        last_z = zscore.iloc[-1]
-        if abs(last_z) >= z_thresh:
-            act1 = "BUY" if last_z < 0 else "SELL"
-            act2 = "SELL" if last_z < 0 else "BUY"
-            st.info(f"**{s1_n}**: {act1} {q1} @ ${S1.iloc[-1]:.2f}")
-            st.info(f"**{s2_n}**: {act2} {q2} @ ${S2.iloc[-1]:.2f}")
-        else:
-            st.write("Status: Neutral (No Signal)")
-
-    with t2:
-        st.subheader("📝 Audit Ledger (Last 500 Days)")
-        st.table(ledger[['S1_Px', 'S2_Px', 'Z', 'Pos', 'Total_PnL']].tail(500).iloc[::-1])
+        # Apply small font styling via CSS
+        st.markdown("""
+            <style>
+                .small-font {
+                    font-size:12px !important;
+                }
+                /* Target the dataframe specifically */
+                div[data-testid="stTable"] {
+                    font-size: 12px;
+                }
+                table {
+                    margin-top: -20px;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+    
+        # Render the table
+        st.table(audit_df.style.format({
+            f'{s1_n} Px': '{:.2f}', 
+            f'{s2_n} Px': '{:.2f}', 
+            'Z-Score': '{:.2f}', 
+            'Daily P&L': '{:+.2f}', 
+            'Cum. P&L': '{:.2f}'
+        }))
 
 else:
 
     st.warning("No cointegrated pairs detected. Try expanding the timeframe.")
+
 
