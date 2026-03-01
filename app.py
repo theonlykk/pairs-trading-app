@@ -12,10 +12,10 @@ st.title("🏦 Institutional Pairs Trading Dashboard")
 # 2. Sidebar Settings
 st.sidebar.header("Strategy Parameters")
 ticker_input = st.sidebar.text_input("Banking Tickers", "JPM, BAC, MS, GS, C, WFC")
-lookback = st.sidebar.date_input("Analysis Start Date", pd.to_datetime("2023-01-01"))
+lookback = st.sidebar.date_input("Analysis Start Date", pd.to_datetime("2024-01-01"))
 z_thresh = st.sidebar.slider("Z-Score Entry Threshold", 1.5, 3.0, 2.0)
 
-# 3. Data Engine (Using legacy st.cache)
+# 3. Data Engine (The Verified "Ramp Killer" & Python 3.13 Fix)
 @st.cache(show_spinner=True)
 def fetch_and_clean(tickers_str, start):
     tickers = [t.strip() for t in tickers_str.split(",")]
@@ -26,7 +26,7 @@ def fetch_and_clean(tickers_str, start):
     else:
         df = df_raw[['Close']].copy()
 
-    # Apply the difference fix if a ramp is detected
+    # Detect and reverse 'Ramp' data
     for col in df.columns:
         if df[col].iloc[-1] > (df[col].iloc[0] * 5):
             first_val = df[col].iloc[0]
@@ -35,13 +35,13 @@ def fetch_and_clean(tickers_str, start):
 
 data = fetch_and_clean(ticker_input, lookback)
 
-# 4. Pair Selection Math
+# 4. Pair Selection Math (Optimized for Cloud/Python 3.13)
 def get_best_pairs(df):
     results = []
     nodes = df.columns
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
-            # Force conversion to 1D numpy array of floats to satisfy Python 3.13
+            # Force 1D numpy arrays to avoid ptp/numpy errors
             s1 = np.ascontiguousarray(df.iloc[:, i].values, dtype=float)
             s2 = np.ascontiguousarray(df.iloc[:, j].values, dtype=float)
             
@@ -50,7 +50,6 @@ def get_best_pairs(df):
                 if pval < 0.05:
                     results.append((nodes[i], nodes[j], pval))
             except Exception:
-                # This skips any pairs that might still cause a math error
                 continue
                 
     return pd.DataFrame(results, columns=['S1', 'S2', 'P-Value']).sort_values('P-Value')
@@ -63,7 +62,6 @@ if not pairs_found.empty:
     selected = st.selectbox("Active Pair Focus", [f"{r['S1']}/{r['S2']}" for _, r in pairs_found.iterrows()])
     s1_n, s2_n = selected.split("/")
     
-    # Core Math
     S1, S2 = data[s1_n], data[s2_n]
     model = sm.OLS(S1, sm.add_constant(S2)).fit()
     beta = model.params[s2_n]
@@ -74,7 +72,6 @@ if not pairs_found.empty:
     ledger = pd.DataFrame(index=data.index)
     ledger['S1_Px'], ledger['S2_Px'], ledger['Z'] = S1, S2, zscore
     
-    # Position logic
     state = 0
     states = []
     for z in zscore:
@@ -88,73 +85,63 @@ if not pairs_found.empty:
     q2 = int(q1 * beta)
     ledger['S1_Qty'], ledger['S2_Qty'] = ledger['Pos']*q1, ledger['Pos']*-q2
     
-    # P&L Calculation
     ledger['Daily_PnL'] = (ledger['S1_Qty'].shift(1) * S1.diff() + 
                            ledger['S2_Qty'].shift(1) * S2.diff()).fillna(0)
     ledger['Total_PnL'] = ledger['Daily_PnL'].cumsum()
 
-    # 7. Visual Interface
+    # 7. Visual Interface & Charts
     st.markdown("---")
     m1, m2, m3 = st.columns(3)
     m1.metric("Current Z-Score", f"{zscore.iloc[-1]:.2f}")
     m2.metric("Hedge Ratio (Beta)", f"{beta:.2f}")
     m3.metric("Cumulative P&L", f"${ledger['Total_PnL'].iloc[-1]:,.2f}")
 
-    # Charts Section
     st.subheader("Visual Analysis")
-    
     c1, c2 = st.columns(2)
     with c1:
         st.write("**Hedged Price Action**")
         st.line_chart(pd.DataFrame({s1_n: S1, f"{s2_n} (Scaled)": S2 * beta}))
-        
         st.write("**Signal & Position Bias**")
         st.line_chart(pd.DataFrame({"Z-Score": zscore, "Bias": ledger['Pos']}))
 
     with c2:
         st.write("**Cumulative Strategy P&L (Equity Curve)**")
         st.line_chart(ledger['Total_PnL'])
-        
         st.write("**Daily Mark-to-Market P&L**")
         st.bar_chart(ledger['Daily_PnL'])
 
-    # 8. Ledger Audit (With Positions & Small Font)
-    with st.expander("📝 Full Transaction & MTM Ledger", expanded=True):
-        # Prepare the specific columns for the audit
-        # We include the Qty columns you requested
-        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Daily_PnL', 'Total_PnL']].tail(500).iloc[::-1]
-        
-        # Rename columns for a cleaner look
-        audit_df.columns = [f'{s1_n} Px', f'{s2_n} Px', 'Z-Score', f'{s1_n} Qty', f'{s2_n} Qty', 'Daily P&L', 'Cum. P&L']
+    # 8. Execution Ticket & Compact Ledger
+    st.markdown("---")
+    t1, t2 = st.columns([1, 2])
     
-        # Apply small font styling via CSS
+    with t1:
+        st.subheader("🎫 Execution Ticket")
+        last_z = zscore.iloc[-1]
+        if abs(last_z) >= z_thresh:
+            act1 = "BUY" if last_z < 0 else "SELL"
+            act2 = "SELL" if last_z < 0 else "BUY"
+            st.info(f"**{s1_n}**: {act1} {q1} @ ${S1.iloc[-1]:.2f}")
+            st.info(f"**{s2_n}**: {act2} {q2} @ ${S2.iloc[-1]:.2f}")
+        else:
+            st.write("Status: Neutral (No Signal)")
+
+    with t2:
+        st.subheader("📝 Audit Ledger")
+        audit_df = ledger[['S1_Px', 'S2_Px', 'Z', 'S1_Qty', 'S2_Qty', 'Total_PnL']].tail(15).iloc[::-1]
+        audit_df.columns = [f'{s1_n} Px', f'{s2_n} Px', 'Z-Score', 'S1 Qty', 'S2 Qty', 'Cum. P&L']
+
         st.markdown("""
             <style>
-                .small-font {
-                    font-size:12px !important;
-                }
-                /* Target the dataframe specifically */
-                div[data-testid="stTable"] {
-                    font-size: 12px;
-                }
-                table {
-                    margin-top: -20px;
-                }
+                th { font-size: 14px !important; color: #FFFFFF !important; background-color: #262730 !important; text-align: left !important; padding: 10px !important; }
+                td { font-size: 11px !important; padding: 5px !important; }
+                table { width: 100%; }
             </style>
         """, unsafe_allow_html=True)
-    
-        # Render the table
+
         st.table(audit_df.style.format({
-            f'{s1_n} Px': '{:.2f}', 
-            f'{s2_n} Px': '{:.2f}', 
-            'Z-Score': '{:.2f}', 
-            'Daily P&L': '{:+.2f}', 
-            'Cum. P&L': '{:.2f}'
+            f'{s1_n} Px': '{:.2f}', f'{s2_n} Px': '{:.2f}', 
+            'Z-Score': '{:.2f}', 'Cum. P&L': '{:.2f}'
         }))
 
 else:
-
-    st.warning("No cointegrated pairs detected. Try expanding the timeframe.")
-
-
-
+    st.warning("No cointegrated pairs detected. Try expanding the timeframe or changing tickers.")
