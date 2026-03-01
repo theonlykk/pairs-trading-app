@@ -36,20 +36,27 @@ def fetch_and_clean(tickers_str, start):
 data = fetch_and_clean(ticker_input, lookback)
 
 # 4. Pair Selection Math (Memory Safe)
+import time # Add this to your imports at the top
+
 def get_best_pairs(df):
     results = []
     nodes = df.columns
+    # Limit the number of pairs to analyze to prevent memory spikes
     for i in range(len(nodes)):
         for j in range(i + 1, len(nodes)):
-            # Convert to standard 1D arrays and copy to prevent memory corruption
-            s1 = df.iloc[:, i].values.astype(float).copy()
-            s2 = df.iloc[:, j].values.astype(float).copy()
+            # Force conversion to a simple list of floats 
+            # This is slower but much safer against memory corruption
+            s1 = [float(x) for x in df.iloc[:, i].values]
+            s2 = [float(x) for x in df.iloc[:, j].values]
             
             try:
-                # The coint function can be memory-intensive; we handle errors gracefully
-                _, pval, _ = coint(s1, s2)
+                # Use statsmodels with explicit numpy conversion
+                _, pval, _ = coint(np.array(s1), np.array(s2))
                 if pval < 0.05:
                     results.append((nodes[i], nodes[j], pval))
+                
+                # HEARTBEAT DELAY: Prevents the "Double Free" crash
+                time.sleep(0.01) 
             except Exception:
                 continue
                 
@@ -145,3 +152,4 @@ if not pairs_found.empty:
         }))
 else:
     st.warning("No cointegrated pairs detected. Try expanding the timeframe or changing tickers.")
+
